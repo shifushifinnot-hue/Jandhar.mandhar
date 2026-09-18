@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Open World LAN</title>
+
+<style>
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+  touch-action:none;
+}
+
+body{
+  overflow:hidden;
+  background:#111;
+  font-family:Arial,sans-serif;
+}
+
+canvas{
+  display:block;
+  width:100vw;
+  height:100vh;
+}
+
+#hud{
+  position:fixed;
+  top:15px;
+  left:15px;
+  color:white;
+  background:#0008;
+  padding:10px 14px;
+  border-radius:12px;
+  font-weight:bold;
+  z-index:5;
+}
+
+#joystick{
+  position:fixed;
+  left:25px;
+  bottom:30px;
+  width:130px;
+  height:130px;
+  border-radius:50%;
+  background:#ffffff25;
+  border:2px solid #ffffff55;
+  z-index:10;
+}
+
+#stick{
+  position:absolute;
+  width:58px;
+  height:58px;
+  left:34px;
+  top:34px;
+  border-radius:50%;
+  background:#ffffffaa;
+}
+
+#run{
+  position:fixed;
+  right:30px;
+  bottom:45px;
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  border:0;
+  background:#ffffff35;
+  color:white;
+  font-size:18px;
+  font-weight:bold;
+  z-index:10;
+}
+
+#info{
+  position:fixed;
+  top:15px;
+  right:15px;
+  color:white;
+  background:#0008;
+  padding:10px;
+  border-radius:10px;
+  z-index:5;
+}
+</style>
+</head>
+
+<body>
+
+<div id="hud">OPEN WORLD</div>
+<div id="info">OFFLINE</div>
+
+<div id="joystick">
+  <div id="stick"></div>
+</div>
+
+<button id="run">RUN</button>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+function resize(){
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
+}
+resize();
+addEventListener("resize",resize);
+
+const player={
+  x:0,
+  y:0,
+  speed:2.2,
+  run:false
+};
+
+let joyX=0;
+let joyY=0;
+let running=false;
+
+const buildings=[
+  {x:300,y:180,w:150,h:100},
+  {x:-350,y:-100,w:180,h:120},
+  {x:450,y:-350,w:170,h:110},
+  {x:-500,y:350,w:200,h:130}
+];
+
+const trees=[];
+
+for(let i=0;i<60;i++){
+  trees.push({
+    x:(Math.random()-0.5)*2500,
+    y:(Math.random()-0.5)*2500
+  });
+}
+
+const keys={};
+
+addEventListener("keydown",e=>{
+  keys[e.key.toLowerCase()]=true;
+});
+
+addEventListener("keyup",e=>{
+  keys[e.key.toLowerCase()]=false;
+});
+
+const joystick=document.getElementById("joystick");
+const stick=document.getElementById("stick");
+
+let touching=false;
+
+joystick.addEventListener("pointerdown",e=>{
+  touching=true;
+  joystick.setPointerCapture(e.pointerId);
+  moveJoy(e);
+});
+
+joystick.addEventListener("pointermove",e=>{
+  if(touching) moveJoy(e);
+});
+
+joystick.addEventListener("pointerup",resetJoy);
+joystick.addEventListener("pointercancel",resetJoy);
+
+function moveJoy(e){
+  const r=joystick.getBoundingClientRect();
+
+  let x=e.clientX-(r.left+r.width/2);
+  let y=e.clientY-(r.top+r.height/2);
+
+  const max=45;
+  const d=Math.hypot(x,y);
+
+  if(d>max){
+    x=x/d*max;
+    y=y/d*max;
+  }
+
+  joyX=x/max;
+  joyY=y/max;
+
+  stick.style.transform=
+    `translate(${x}px,${y}px)`;
+}
+
+function resetJoy(){
+  touching=false;
+  joyX=0;
+  joyY=0;
+  stick.style.transform="translate(0,0)";
+}
+
+const run=document.getElementById("run");
+
+run.addEventListener("pointerdown",()=>{
+  running=true;
+});
+
+run.addEventListener("pointerup",()=>{
+  running=false;
+});
+
+function update(){
+
+  let x=joyX;
+  let y=joyY;
+
+  if(keys["w"]||keys["arrowup"]) y=-1;
+  if(keys["s"]||keys["arrowdown"]) y=1;
+  if(keys["a"]||keys["arrowleft"]) x=-1;
+  if(keys["d"]||keys["arrowright"]) x=1;
+
+  const speed=running?4:2.2;
+
+  player.x+=x*speed;
+  player.y+=y*speed;
+}
+
+function worldToScreen(x,y){
+
+  return {
+    x:canvas.width/2+(x-player.x),
+    y:canvas.height/2+(y-player.y)
+  };
+}
+
+function drawWorld(){
+
+  ctx.fillStyle="#83b86b";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Roads
+  ctx.fillStyle="#777";
+
+  const road=worldToScreen(-2000,0);
+  ctx.fillRect(0,road.y-55,canvas.width,110);
+
+  const road2=worldToScreen(0,-2000);
+  ctx.fillRect(road2.x-55,0,110,canvas.height);
+
+  // Road lines
+  ctx.strokeStyle="#eee";
+  ctx.lineWidth=5;
+  ctx.setLineDash([30,30]);
+
+  ctx.beginPath();
+  ctx.moveTo(0,road.y);
+  ctx.lineTo(canvas.width,road.y);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(road2.x,0);
+  ctx.lineTo(road2.x,canvas.height);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  // Trees
+  for(const t of trees){
+
+    const p=worldToScreen(t.x,t.y);
+
+    if(p.x<-50||p.x>canvas.width+50||
+       p.y<-50||p.y>canvas.height+50) continue;
+
+    ctx.fillStyle="#654321";
+    ctx.fillRect(p.x-5,p.y,10,25);
+
+    ctx.fillStyle="#176b2c";
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,25,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // Buildings
+  for(const b of buildings){
+
+    const p=worldToScreen(b.x,b.y);
+
+    ctx.fillStyle="#d5b48a";
+    ctx.fillRect(p.x,p.y,b.w,b.h);
+
+    ctx.fillStyle="#8b2e2e";
+
+    ctx.beginPath();
+    ctx.moveTo(p.x-10,p.y);
+    ctx.lineTo(p.x+b.w/2,p.y-45);
+    ctx.lineTo(p.x+b.w+10,p.y);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle="#51351f";
+    ctx.fillRect(
+      p.x+b.w/2-15,
+      p.y+b.h-50,
+      30,
+      50
+    );
+  }
+}
+
+function drawPlayer(){
+
+  const x=canvas.width/2;
+  const y=canvas.height/2;
+
+  // shadow
+  ctx.fillStyle="#0005";
+  ctx.beginPath();
+  ctx.ellipse(x,y+25,18,8,0,0,Math.PI*2);
+  ctx.fill();
+
+  // body
+  ctx.fillStyle="#2266dd";
+  ctx.fillRect(x-14,y-5,28,35);
+
+  // head
+  ctx.fillStyle="#f1b27a";
+  ctx.beginPath();
+  ctx.arc(x,y-18,13,0,Math.PI*2);
+  ctx.fill();
+
+  // direction
+  ctx.fillStyle="#111";
+  ctx.fillRect(x-4,y-23,8,3);
+}
+
+function gameLoop(){
+
+  update();
+
+  drawWorld();
+  drawPlayer();
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
+</body>
+  </html>
